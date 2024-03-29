@@ -1,9 +1,8 @@
 import requests
 import pandas as pd
-import json as js
 from bs4 import BeautifulSoup
 from controller.ColetaDadosAppController import coletaLinksCnpjs
-from controller.ColetaDadosAppController import coletaDadosCnpj
+
 import time
 
 headersPost = {
@@ -62,43 +61,3 @@ for i in range(30,51):
         time.sleep(5)
 
 time.sleep(10)
-
-
-
-#query = query.replace(',"page":1}', ',"page":2}')
-#conteudo = requests.post("https://api.casadosdados.com.br/v2/public/cnpj/search", data=query, headers=headers).content
-
-"""
-    # BUSCA ELEMENTOS QUE CONTÉM OS DADOS
-    title = respostaa.find('title').text
-    divco = respostaa.find('div', {"class": "column is-9"})
-
-    # TRATAMENTO NOME E CNPJ
-    title = title.split('-')
-
-    nome = title[0]
-    print("Nome:" + nome)
-
-    cnpj = title[1].replace(' CNPJ', '')
-    print("CNPJ:" + cnpj)
-
-    # TRATAMENTO TELEFONE E EMAIL
-    divco = divco.findAll('a')
-    whatsapp = "https://wa.me/+55" + divco[3].get('href').replace('tel:', '').replace(' ', '')
-    print("WhatsApp: " + whatsapp)
-    contatoSecundario = divco[4].get('href').replace('tel:', '').replace(' ', '')
-    print("Contato Secudário: " + contatoSecundario)
-
-    arquivoXlsx = 'ContatosGoiania.xlsx'
-    df = pd.read_excel(arquivoXlsx)
-
-    new_data = pd.DataFrame([
-        {'Nome': nome, 'CNPJ': cnpj, 'WhatsApp': whatsapp, 'Contato Secundário': contatoSecundario}
-    ])
-
-    # Adicionar novas linhas ao DataFrame
-    df = pd.concat([df, new_data], ignore_index=True)
-
-    # Salvar o DataFrame atualizado de volta ao arquivo Excel
-    df.to_excel(arquivoXlsx, index=False)
-"""
