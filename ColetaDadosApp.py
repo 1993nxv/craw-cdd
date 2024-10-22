@@ -1,63 +1,106 @@
-import requests
 import pandas as pd
 from bs4 import BeautifulSoup
-from controller.ColetaDadosAppController import coletaLinksCnpjs
-
+from service.ColetaDadosAppService import coletaLinksCnpjs
+import ColetaDadosV2
 import time
 
-headersPost = {
-                'Content-Type': 'application/json',
-                'User-Agent': 'insomnia/8.6.1'
-              }
+def extrair_texto_por_label(label, soup):
+    elemento = soup.find('label', string=label)
+    if elemento:
+        valor = elemento.find_next('p').text.strip()
+        return valor
+    return None
 
-headersGet =  {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                'cookie': '_ga=GA1.1.1110691701.1711111577; cf_clearance=zZr1dDgkk2DkbeRQQuMLSCycK4wAi4PBqc0zkz5PFGg-1711456960-1.0.1.1-NrDkRXgR_FgIjafOIXOs2Bz6E9ebXjT8D.vnXuorHxYBEzG85LxJkf6L9fC7Wgk4UJmKTvF3nrmZOsWp0lg4KA; FCNEC=%5B%5B%22AKsRol84RgxD67pmjMfgt-tC0Iwyn2R_nS8liw6iWzA4ZChp3Ejt8jUrmBXuLak0MvzUonDA4CtvnSHDs1jFlSo-KSO-fZ6ARZMTRPGKLFsMlPan0hnWHKdx-rFxcyQbdoV2dbMGwwSZru4g0P-CjWyZylJgn7mjHQ%3D%3D%22%5D%5D; _ga_06Q5WY4PHL=GS1.1.1711456959.10.0.1711456964.0.0.0'
-              }
+# Extração de outros campos que podem ter múltiplos elementos
+def extrair_multiplos_campos(label, soup):
+    elementos = soup.find_all('label', text=label)
+    valores = [el.find_next('p').text.strip() for el in elementos]
+    return ', '.join(valores) if valores else None
 
 with open("query.json", "r") as query:
     query = query.read()
 
-for i in range(30,51):
-    query = query.replace(',"page":1',',"page":' + str(i))
+for i in range(11, 40):
+    url = "https://api.casadosdados.com.br/v2/public/cnpj/search"
+
+    query = query.replace(",\"page\":1", ',"page":' + str(i))
     print('Coletando dados page: ' + str(i))
 
-    linksCnpjs = coletaLinksCnpjs(query = query, headersPost = headersPost)
-
+    response = ColetaDadosV2.post(url, query)
+    linksCnpjs = coletaLinksCnpjs(response)
 
     for link in linksCnpjs:
-        respostaa = requests.get(link, headers=headersGet).content
+
+        respostaa = ColetaDadosV2.get_request(link)
+
         respostaa = BeautifulSoup(respostaa, 'html.parser')
 
-        # COLETANDO DADOS DA EMPRESA E INSERINDO NA PLANILHA
-        dadosEmpresa = respostaa.findAll('div', {"class": "column is-narrow"})
+        # # COLETANDO DADOS DA EMPRESA E INSERINDO NA PLANILHA
+        # dadosEmpresa = respostaa.findAll('div', {"class": "p-3"})
 
-        camposDataFrame = {}
-        for c in dadosEmpresa:
-            campos = c.find_all_next('p')
-            campo = campos[0].text
-            valor = campos[1].text
-            if campo == 'Telefone':
-                valor = valor.replace(' ', '')
-                valor = valor.replace('-', '')
-                valor = 'https://wa.me/+55' + valor
-            camposDataFrame[campo] = valor
+        camposDataFrame = {
+            "CNPJ": extrair_texto_por_label("CNPJ:", respostaa),
+            "Razão Social": extrair_texto_por_label("Razão Social:", respostaa),
+            "Tipo": extrair_texto_por_label("Matriz ou Filial:", respostaa),
+            "Data Abertura": extrair_texto_por_label("Data de Abertura:", respostaa),
+            "Situação Cadastral": extrair_texto_por_label("Situação Cadastral:", respostaa),
+            "Data da Situação Cadastral": extrair_texto_por_label("Data da Situação:", respostaa),
+            "Capital Social": extrair_texto_por_label("Capital Social:", respostaa),
+            "Natureza Jurídica": extrair_texto_por_label("Natureza Jurídica:", respostaa),
+            "Empresa MEI": extrair_texto_por_label("Empresa MEI:", respostaa),
+            "Logradouro": extrair_texto_por_label("Logradouro:", respostaa),
+            "Número": extrair_texto_por_label("Número:", respostaa),
+            "Complemento": extrair_texto_por_label("Complemento:", respostaa),
+            "CEP": extrair_texto_por_label("CEP:", respostaa),
+            "Bairro": extrair_texto_por_label("Bairro:", respostaa),
+            "Município": extrair_texto_por_label("Município:", respostaa),
+            "UF": extrair_texto_por_label("UF:", respostaa),
+            "Telefone": extrair_texto_por_label("Telefone:", respostaa),
+            "E-MAIL": extrair_texto_por_label("E-MAIL:", respostaa),
+            "Quadro Societário": extrair_texto_por_label("Quadro Societário:", respostaa),
+            "Atividade Principal": extrair_texto_por_label("Atividade Principal:", respostaa),
+            "Atividades Secundárias": extrair_texto_por_label("Atividades Secundárias:", respostaa),
+            "Data da Consulta": extrair_texto_por_label("Ultima Atualização:", respostaa),
+            "Nome Fantasia": extrair_texto_por_label("Nome Fantasia:", respostaa)
+        }
+
+        # Extrair telefone e formatar para WhatsApp
+        telefone = extrair_texto_por_label("Telefone:", respostaa)
+        if telefone:
+            telefone = telefone.replace(' ', '').replace('-', '')
+            camposDataFrame["Telefone"] = f'https://wa.me/+55{telefone}'
+
+        # for c in dadosEmpresa:
+        #     campos = c.find_all_next('p')
+        #     campo = campos[0].text
+        #     valor = campos[1].text
+        #     if campo == 'Telefone':
+        #         valor = valor.replace(' ', '')
+        #         valor = valor.replace('-', '')
+        #         valor = 'https://wa.me/+55' + valor
+        #     camposDataFrame[campo] = valor
 
         # Criar o DataFrame
         df = pd.DataFrame(data=[camposDataFrame])
 
         # Carregar a planilha existente como DataFrame
-        arquivo_excel = 'ContatosApGoiania.xlsx'
-        existing_df = pd.read_excel(arquivo_excel)
+        arquivo_excel = 'ContatosGo1.xlsx'
 
-        # Adicionar os valores do novo DataFrame em uma nova linha
-        merged_df = pd.concat([existing_df, df], ignore_index=True)
+        try:
+            existing_df = pd.read_excel(arquivo_excel)
+            # Adicionar os valores do novo DataFrame em uma nova linha
+            merged_df = pd.concat([existing_df, df], ignore_index=True)
+        except FileNotFoundError:
+            # Se o arquivo não existir, usar apenas o novo DataFrame
+            merged_df = df
 
-        # Salvar o DataFrame de volta no arquivo Excel
+        # Salvar o DataFrame de volta no arquivo
         merged_df.to_excel(arquivo_excel, index=False)
 
-        print(f'Dados adicionados em uma nova linha em {arquivo_excel} com sucesso.')
+        print(f"Dados adicionados em uma nova linha em {arquivo_excel} com sucesso.")
 
-        time.sleep(5)
+        time.sleep(3)
+    with open("query.json", "r") as query:
+        query = query.read()
 
-time.sleep(10)
+time.sleep(3)
